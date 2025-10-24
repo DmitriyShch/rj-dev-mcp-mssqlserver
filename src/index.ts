@@ -37,6 +37,7 @@ import { QueryPlanTool } from "./tools/QueryPlanTool.js";
 import { StatisticsUpdateTool } from "./tools/StatisticsUpdateTool.js";
 import { WaitStatsTool } from "./tools/WaitStatsTool.js";
 import { GetStoredProcedureTextTool } from "./tools/GetStoredProcedureTextTool.js";
+import { GetViewTextTool } from "./tools/GetViewTextTool.js";
 
 // MSSQL Database connection configuration
 const credential = new DefaultAzureCredential();
@@ -151,6 +152,7 @@ const queryPlanTool = new QueryPlanTool();
 const statisticsUpdateTool = new StatisticsUpdateTool();
 const waitStatsTool = new WaitStatsTool();
 const getStoredProcedureTextTool = new GetStoredProcedureTextTool();
+const getViewTextTool = new GetViewTextTool();
 
 const server = new Server(
   {
@@ -171,8 +173,18 @@ const isReadOnly = process.env.READONLY === "true";
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: isReadOnly
-    ? [listTableTool, readDataTool, describeTableTool, dbaReadDataTool, dbaInsertDataTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool, backupStatusTool, checkConnectivityTool, databaseStatusTool, ioHotspotsTool, indexUsageStatsTool, queryPlanTool, waitStatsTool, getStoredProcedureTextTool] // Read-only tools for monitoring and analysis. todo: add searchDataTool to the list of tools available in readonly mode once implemented
-    : [insertDataTool, readDataTool, describeTableTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, dbaInsertDataTool, dbaReadDataTool, checkDBTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool, backupStatusTool, checkConnectivityTool, databaseStatusTool, ioHotspotsTool, indexUsageStatsTool, queryPlanTool, statisticsUpdateTool, waitStatsTool, getStoredProcedureTextTool], // add all new tools here including write operations
+    ? [listTableTool, readDataTool, describeTableTool, dbaReadDataTool, dbaInsertDataTool,
+      sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool, backupStatusTool,
+      checkConnectivityTool, databaseStatusTool, ioHotspotsTool, indexUsageStatsTool,
+      queryPlanTool, waitStatsTool, getStoredProcedureTextTool, getViewTextTool]
+      // Read-only tools for monitoring and analysis. todo: add searchDataTool to the list 
+      // of tools available in readonly mode once implemented
+    : [insertDataTool, readDataTool, describeTableTool, updateDataTool, createTableTool,
+      createIndexTool, dropTableTool, listTableTool, dbaInsertDataTool, dbaReadDataTool,
+      checkDBTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool, backupStatusTool,
+      checkConnectivityTool, databaseStatusTool, ioHotspotsTool, indexUsageStatsTool,
+      queryPlanTool, statisticsUpdateTool, waitStatsTool, getStoredProcedureTextTool,
+      getViewTextTool], // add all new tools here including write operations
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -264,11 +276,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case getStoredProcedureTextTool.name:
         if (!args || typeof args.storedProcName !== "string") {
           return {
-            content: [{ type: "text", text: `Missing or invalid 'storedProcName' argument for get_stored_procedure_text tool.` }],
+            content: [{ type: "text",
+              text: `Missing or invalid 'storedProcName' argument for get_stored_procedure_text tool.` }],
             isError: true,
           };
         }
         result = await getStoredProcedureTextTool.run(args as { storedProcName: string });
+        break;
+      case getViewTextTool.name:
+        if (!args || typeof args.viewName !== "string") {
+          return {
+            content: [{ type: "text",
+              text: `Missing or invalid 'viewName' argument for get_view_text tool.` }],
+            isError: true,
+          };
+        }
+        result = await getViewTextTool.run(args as { viewName: string });
         break;
       default:
         return {
@@ -352,8 +375,8 @@ function wrapToolRun(tool: { run: (...args: any[]) => Promise<any> }) {
   };
 }
 // Apply connection wrapper to all tools
-[insertDataTool, readDataTool, describeTableTool, updateDataTool, createTableTool,
-  createIndexTool, dropTableTool, listTableTool, dbaInsertDataTool, dbaReadDataTool,
-  checkDBTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool, backupStatusTool,
-  checkConnectivityTool, databaseStatusTool, ioHotspotsTool, indexUsageStatsTool, queryPlanTool,
-  statisticsUpdateTool, waitStatsTool, getStoredProcedureTextTool].forEach(wrapToolRun);
+[insertDataTool, readDataTool, describeTableTool, updateDataTool, createTableTool, createIndexTool,
+  dropTableTool, listTableTool, dbaInsertDataTool, dbaReadDataTool, checkDBTool, sp_whoisactiveTool,
+  sp_blitzTool, sp_pressureDetectorTool, backupStatusTool, checkConnectivityTool, databaseStatusTool,
+  ioHotspotsTool, indexUsageStatsTool, queryPlanTool, statisticsUpdateTool, waitStatsTool,
+  getStoredProcedureTextTool, getViewTextTool].forEach(wrapToolRun);
