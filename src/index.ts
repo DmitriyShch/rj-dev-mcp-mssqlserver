@@ -50,10 +50,23 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token?: s
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
   const useAzureAuth = process.env.USE_AZURE_AUTH?.toLowerCase() === 'true';
+  let serverInfo = process.env.SERVER_NAME!.split(":");
+  let serverName = serverInfo[0];
+  let serverPort = 1434;
+  if (serverInfo.length > 1)
+  {
+    try {
+     serverPort = Number(serverInfo[1]);
+    } catch { }
+  }
+
+  if (!serverPort)
+    throw new Error(`Incorrect port format: ${serverInfo[1]}. SERVER_NAME: ${serverInfo}`);
 
   const baseConfig = {
-    server: process.env.SERVER_NAME!,
+    server: serverName,
     database: process.env.DATABASE_NAME!,
+    port: serverPort,
     options: {
       // Enable encryption for data in transit
       encrypt: true,
@@ -99,14 +112,14 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token?: s
       expiresOn: accessToken?.expiresOnTimestamp ? new Date(accessToken.expiresOnTimestamp) : new Date(Date.now() + 30 * 60 * 1000)
     };
   } else {
-    if (!process.env.SERVER_NAME || !process.env.DATABASE_NAME || !process.env.USERNAME || !process.env.PASSWORD) {
-        throw new Error("Missing required environment variables: SERVER_NAME, DATABASE_NAME, USERNAME, PASSWORD");
+    if (!process.env.SERVER_NAME || !process.env.DATABASE_NAME || (!process.env.USERNAME && !process.env.SQLUSERNAME) || !process.env.PASSWORD) {
+        throw new Error("Missing required environment variables: SERVER_NAME, DATABASE_NAME, USERNAME OR SQLUSERNAME, PASSWORD");
     }
     // Use SQL Server authentication
     return {
       config: {
         ...baseConfig,
-        user: process.env.USERNAME!,
+        user: process.env.SQLUSERNAME ?? process.env.USERNAME,
         password: process.env.PASSWORD!,
       }
     };
