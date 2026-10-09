@@ -193,3 +193,23 @@ Once configured, you can interact with your database using natural language:
 - Set `READONLY: "true"` in production environments if you only need read access
 
 You should now have successfully configured the MCP server for MSSQL Database with your preferred AI assistant. This setup allows you to seamlessly interact with MSSQL Database through natural language queries!
+
+
+### SQL Server addresses
+
+`SERVER_NAME` accepts `host`, `host:port`, `host,port`, `host\instance`,
+`host,port\instance`, and `host\instance,port`. An optional `tcp:` prefix
+is supported. In JSON, escape the backslash:
+
+```json
+{"SERVER_NAME": "sbp-api.a-is.ru,10440\\SQLEXPRESS2025"}
+```
+
+An explicit port connects directly to that TCP endpoint and takes precedence
+over instance discovery. The forwarded port must reach the intended instance.
+Without a port, named instances use `options.instanceName` (SQL Server Browser
+and reachable UDP 1434 are required). A plain host defaults to TCP 1433.
+TLS and authentication settings are unchanged.
+
+Run address regression checks after building:
+`node tests/sqlServerAddress.test.mjs`.

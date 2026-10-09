@@ -2,6 +2,7 @@
 
 // External imports
 import sql from "mssql";
+import { parseSqlServerAddress, sqlServerConnectionTarget } from "./sqlServerAddress.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -38,6 +39,15 @@ import { StatisticsUpdateTool } from "./tools/StatisticsUpdateTool.js";
 import { WaitStatsTool } from "./tools/WaitStatsTool.js";
 import { GetStoredProcedureTextTool } from "./tools/GetStoredProcedureTextTool.js";
 import { GetViewTextTool } from "./tools/GetViewTextTool.js";
+
+const stderrLogger = {
+  error: console.error.bind(console),
+  warn: console.warn.bind(console),
+};
+
+console.log = (...args: unknown[]) => stderrLogger.error(...args);
+console.info = (...args: unknown[]) => stderrLogger.error(...args);
+console.debug = (...args: unknown[]) => stderrLogger.error(...args);
 
 // MSSQL Database connection configuration
 const credential = new DefaultAzureCredential();
@@ -232,24 +242,14 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token?: s
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
   const useAzureAuth = process.env.USE_AZURE_AUTH?.toLowerCase() === 'true';
-  let serverInfo = process.env.SERVER_NAME!.split(":");
-  let serverName = serverInfo[0];
-  let serverPort = 1434;
-  if (serverInfo.length > 1)
-  {
-    try {
-     serverPort = Number(serverInfo[1]);
-    } catch { }
-  }
-
-  if (!serverPort)
-    throw new Error(`Incorrect port format: ${serverInfo[1]}. SERVER_NAME: ${serverInfo}`);
+  const target = sqlServerConnectionTarget(parseSqlServerAddress(process.env.SERVER_NAME));
 
   const baseConfig = {
-    server: serverName,
+    server: target.server,
     database: process.env.DATABASE_NAME!,
-    port: serverPort,
+    ...(target.port === undefined ? {} : { port: target.port }),
     options: {
+      ...target.options,
       // Enable encryption for data in transit
       encrypt: true,
       // Enable or disable trusting server certificate based on env variable
@@ -630,8 +630,8 @@ async function runServer() {
           timestamp: new Date().toISOString(),
           details,
         };
-        console.error("Transport closed unexpectedly. Cleaning up connections.");
-        void resetSqlConnection().finally(() => process.exit(1));
+        console.error("Transport closed. Cleaning up SQL connections.");
+        void resetSqlConnection();
       });
     }
 

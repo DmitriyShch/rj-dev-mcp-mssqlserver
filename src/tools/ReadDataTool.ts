@@ -54,13 +54,6 @@ export class ReadDataTool implements Tool {
     /OPENROWSET/i,
     /OPENDATASOURCE/i,
     
-    // System functions that could be dangerous
-    /@@/,
-    /SYSTEM_USER/i,
-    /USER_NAME/i,
-    /DB_NAME/i,
-    /HOST_NAME/i,
-    
     // Time delay attacks
     /WAITFOR\s+DELAY/i,
     /WAITFOR\s+TIME/i,
@@ -101,7 +94,8 @@ export class ReadDataTool implements Tool {
       };
     }
 
-    const upperQuery = cleanQuery.toUpperCase();
+    const normalizedQuery = cleanQuery.replace(/N?'(?:''|[^'])*'/g, "''");
+    const upperQuery = normalizedQuery.toUpperCase();
 
     // Must start with SELECT
     if (!upperQuery.startsWith('SELECT')) {
@@ -125,7 +119,7 @@ export class ReadDataTool implements Tool {
 
     // Check for dangerous patterns using regex
     for (const pattern of ReadDataTool.DANGEROUS_PATTERNS) {
-      if (pattern.test(query)) {
+      if (pattern.test(normalizedQuery)) {
         return { 
           isValid: false, 
           error: 'Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.' 
@@ -143,7 +137,7 @@ export class ReadDataTool implements Tool {
     }
 
     // Check for suspicious string patterns that might indicate obfuscation
-    if (query.includes('CHAR(') || query.includes('NCHAR(') || query.includes('ASCII(')) {
+    if (upperQuery.includes('CHAR(') || upperQuery.includes('NCHAR(') || upperQuery.includes('ASCII(')) {
       return { 
         isValid: false, 
         error: 'Character conversion functions are not allowed as they may be used for obfuscation.' 
